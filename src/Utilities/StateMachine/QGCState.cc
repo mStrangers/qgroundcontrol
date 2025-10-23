@@ -16,12 +16,6 @@ QGCState::QGCState(const QString& stateName, QState* parentState)
     });
 }
 
-void QGCState::setError(const QString& errorString) 
-{
-    qCWarning(QGCStateMachineLog) << "errorString" << errorString << " - " << Q_FUNC_INFO;
-    machine()->setError(errorString);
-}
-
 QGCStateMachine* QGCState::machine() 
 { 
     return qobject_cast<QGCStateMachine*>(QState::machine()); 

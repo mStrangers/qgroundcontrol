@@ -24,7 +24,7 @@ void WaitForMavlinkMessageState::_onEntered()
 {
     _vehicle = MultiVehicleManager::instance()->activeVehicle();
     if (!_vehicle) {
-        setError(QStringLiteral("No active vehicle available"));
+        qCWarning(QGCStateMachineLog) << "No active vehicle available";
         return;
     }
 
@@ -50,20 +50,22 @@ void WaitForMavlinkMessageState::_messageReceived(const mavlink_message_t &messa
     if (message.msgid != _messageId) {
         return;
     }
-
     if (_predicate && !_predicate(message)) {
         return;
     }
 
+    qCDebug(QGCStateMachineLog) << "WaitForMavlinkMessageState::_messageReceived received expected message id" << _messageId;
+
     disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &WaitForMavlinkMessageState::_messageReceived);
-    if (_timeoutTimer.isActive()) {
-        _timeoutTimer.stop();
-    }
+    _timeoutTimer.stop();
+
     emit advance();
 }
 
 void WaitForMavlinkMessageState::_onTimeout()
 {
+    qCDebug(QGCStateMachineLog) << "WaitForMavlinkMessageState::_onTimeout timeout waiting for message id" << _messageId;
+    
     if (_vehicle) {
         disconnect(_vehicle, &Vehicle::mavlinkMessageReceived, this, &WaitForMavlinkMessageState::_messageReceived);
         _vehicle = nullptr;

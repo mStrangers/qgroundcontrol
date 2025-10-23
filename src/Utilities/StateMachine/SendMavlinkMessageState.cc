@@ -10,29 +10,39 @@
 #include <QString>
 #include <utility>
 
-SendMavlinkMessageState::SendMavlinkMessageState(QState *parent, MessageEncoder encoder)
+SendMavlinkMessageState::SendMavlinkMessageState(QState *parent, MessageEncoder encoder, int retryCount)
     : QGCState(QStringLiteral("SendMavlinkMessageState"), parent)
     , _encoder(std::move(encoder))
+    , _retryCount(retryCount)
 {
     connect(this, &QState::entered, this, &SendMavlinkMessageState::_sendMessage);
 }
 
 void SendMavlinkMessageState::_sendMessage()
 {
+    if (++_runCount > _retryCount + 1) {
+        qCDebug(QGCStateMachineLog) << "Exceeded maximum retries sending MAVLink message";
+        emit error();
+        return;
+    }
+
     if (!_encoder) {
-        setError(QStringLiteral("No MAVLink message encoder configured"));
+        qCDebug(QGCStateMachineLog) << "No MAVLink message encoder configured";
+        emit error();
         return;
     }
 
     Vehicle *vehicle = MultiVehicleManager::instance()->activeVehicle();
     if (!vehicle) {
-        setError(QStringLiteral("No active vehicle available"));
+        qCWarning(QGCStateMachineLog) << "No active vehicle available";
+        emit error();
         return;
     }
 
     SharedLinkInterfacePtr sharedLink = vehicle->vehicleLinkManager()->primaryLink().lock();
     if (!sharedLink) {
-        setError(QStringLiteral("No active link available to send MAVLink message"));
+        qCWarning(QGCStateMachineLog) << "No active link available to send MAVLink message";
+        emit error();
         return;
     }
 
@@ -44,7 +54,8 @@ void SendMavlinkMessageState::_sendMessage()
 
     _encoder(systemId, channel, &message);
     if (!vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), message)) {
-        setError(QStringLiteral("Failed to send MAVLink message"));
+        qCWarning(QGCStateMachineLog) << "Failed to send MAVLink message";
+        emit error();
         return;
     }
 

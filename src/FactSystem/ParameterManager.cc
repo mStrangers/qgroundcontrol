@@ -21,6 +21,7 @@
 #include "Vehicle.h"
 #include "QGCStateMachine.h"
 #include "SendMavlinkMessageState.h"
+#include "WaitForMavlinkMessageState.h"
 
 #include <QtCore/QEasingCurve>
 #include <QtCore/QFile>
@@ -851,9 +852,49 @@ void ParameterManager::_sendParamSetToVehicle(int componentId, const QString &pa
                                          &p);
     };
 
+    auto checkForCorrectParamValue = [this, componentId, paramName](const mavlink_message_t &message) -> bool {
+        if (message.msgid != MAVLINK_MSG_ID_PARAM_VALUE) {
+            return false;
+        }
+        if (message.compid != componentId) {
+            return false;
+        }
+
+        mavlink_param_value_t paramValueMsg{};
+        mavlink_msg_param_value_decode(&message, &paramValueMsg);
+
+        // This will null terminate the name string
+        char parameterNameWithNull[MAVLINK_MSG_PARAM_VALUE_FIELD_PARAM_ID_LEN + 1] = {};
+        (void) strncpy(parameterNameWithNull, paramValueMsg.param_id, MAVLINK_MSG_PARAM_VALUE_FIELD_PARAM_ID_LEN);
+        const QString parameterName(parameterNameWithNull);
+
+        return parameterName == paramName;
+    };
+
     auto stateMachine = new QGCStateMachine(QStringLiteral("ParameterManager PARAM_SET"), this);
-    auto sendParamSetState = new SendMavlinkMessageState(stateMachine, paramSetEncoder);
-    auto waitAckState = new QGCState("Wait for ACK", stateMachine);
+    auto sendParamSetState = new SendMavlinkMessageState(stateMachine, paramSetEncoder, 2 /* retryCount */);
+    auto waitAckState = new WaitForMavlinkMessageState(stateMachine, MAVLINK_MSG_ID_PARAM_VALUE, checkForCorrectParamValue, 1000 /* timeout ms */);
+    auto paramRefreshState = new FunctionState(QStringLiteral("ParameterManager param refresh"), stateMachine, [this, componentId, paramName]() {
+        this->refreshParameter(componentId, paramName);
+    });
+    auto userNotifyState = new FunctionState(QStringLiteral("ParameterManager user notify"), stateMachine, [this, componentId, paramName]() {
+        const QString errorMsg = tr("Parameter write failed: veh:%1 comp:%2 param:%3").arg(_vehicle->id()).arg(componentId).arg(paramName);
+        qCDebug(ParameterManagerLog) << errorMsg;
+        qgcApp()->showAppMessage(errorMsg);
+    });
+    auto finalState = new QFinalState(stateMachine);
+
+    stateMachine->setInitialState(sendParamSetState);
+    sendParamSetState->addTransition(sendParamSetState, &QGCState::advance, waitAckState);
+    sendParamSetState->addTransition(sendParamSetState, &QGCState::error, paramRefreshState);
+    waitAckState->addTransition(waitAckState, &QGCState::advance, finalState);
+    waitAckState->addTransition(waitAckState, &QGCState::advance, paramRefreshState);
+    waitAckState->addTransition(waitAckState, &WaitForMavlinkMessageState::timeout, finalState);
+
+    paramRefreshState->addTransition(paramRefreshState, &QGCState::advance, userNotifyState);
+    userNotifyState->addTransition(userNotifyState, &QGCState::advance, finalState);
+
+    stateMachine->start();
 #endif
 }
 

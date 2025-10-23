@@ -11,9 +11,6 @@ class FunctionState : public QGCState
 public:
     FunctionState(const QString& stateName, QState* parentState, std::function<void()>);
 
-signals:
-    void functionCompleted();
-
 private:
     std::function<void()> _function;
 };

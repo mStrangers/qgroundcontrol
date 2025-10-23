@@ -21,20 +21,10 @@ class QGCStateMachine : public QStateMachine
 public:
     QGCStateMachine(const QString& machineName, QObject* parent = nullptr);
 
-    void setError(const QString& errorString);
-
 signals:
     void error();
 
-public slots:
-    void displayError();
-
 private:
-    void _init();
-
-    Vehicle*    _vehicle = nullptr;
-    QString     _errorString;
-
-    friend class QGCState;
+    Vehicle *_vehicle = nullptr;
 };
 

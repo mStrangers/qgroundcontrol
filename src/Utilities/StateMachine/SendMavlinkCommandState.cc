@@ -75,20 +75,17 @@ void SendMavlinkCommandState::_mavCommandResult(int vehicleId, int targetCompone
     QString commandName = MissionCommandTree::instance()->friendlyName(_command);
 
     if (failureCode == Vehicle::MavCmdResultFailureNoResponseToCommand) {
-        qCDebug(QGCStateMachineLog) << QStringLiteral("%1 Command - No response from vehicle").arg(commandName) << " - " << Q_FUNC_INFO;
-        QString message = QStringLiteral("%1 command failed").arg(commandName);
-        setError(message);
+        qCDebug(QGCStateMachineLog) << QStringLiteral("%1 Command - No response from vehicle").arg(commandName);
+        emit error();
     } else if (failureCode == Vehicle::MavCmdResultFailureDuplicateCommand) {
-        qCWarning(QGCStateMachineLog) << QStringLiteral("%1 Command - Duplicate command pending").arg(commandName) << " - " << Q_FUNC_INFO;
-        QString message = QStringLiteral("%1 command failed due to duplicate command pending").arg(commandName);
-        setError(message);
+        qCWarning(QGCStateMachineLog) << QStringLiteral("%1 Command - Duplicate command pending").arg(commandName);
+        emit error();
     } else if (ackResult != MAV_RESULT_ACCEPTED) {
-        qCWarning(QGCStateMachineLog) << QStringLiteral("%1 Command failed = ack.result: %2").arg(commandName).arg(ackResult) << " - " << Q_FUNC_INFO;
-        QString message = QStringLiteral("%1 command failed").arg(commandName);
-        setError(message);
+        qCWarning(QGCStateMachineLog) << QStringLiteral("%1 Command failed = ack.result: %2").arg(commandName).arg(ackResult);
+        emit error();
     } else {
         // MAV_RESULT_ACCEPTED
-        qCDebug(QGCStateMachineLog) << QStringLiteral("%1 Command succeeded").arg(commandName) << " - " << Q_FUNC_INFO;
+        qCDebug(QGCStateMachineLog) << QStringLiteral("%1 Command succeeded").arg(commandName);
         emit advance();
     }
 }

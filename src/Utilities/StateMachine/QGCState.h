@@ -15,8 +15,6 @@ class QGCState : public QState
 public:
     QGCState(const QString& stateName, QState* parentState);
 
-    void setError(const QString& errorString);
-
     QGCStateMachine* machine();
 
 signals:

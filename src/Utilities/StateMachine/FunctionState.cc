@@ -8,6 +8,6 @@ FunctionState::FunctionState(const QString& stateName, QState* parentState, std:
 {
     connect(this, &QState::entered, this, [this] () {
         _function();
-        emit functionCompleted();
+        emit advance();
     });
 }
