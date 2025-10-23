@@ -119,7 +119,7 @@ private:
     /// Translates ParameterManager::defaultComponentId to real component id if needed
     int _actualComponentId(int componentId) const;
     void _readParameterRaw(int componentId, const QString &paramName, int paramIndex) const;
-    void _sendParamSetToVehicle(int componentId, const QString &paramName, FactMetaData::ValueType_t valueType, const QVariant &value) const;
+    void _sendParamSetToVehicle(int componentId, const QString &paramName, FactMetaData::ValueType_t valueType, const QVariant &value);
     void _writeLocalParamCache(int vehicleId, int componentId);
     void _tryCacheHashLoad(int vehicleId, int componentId, const QVariant &hashValue);
     void _loadMetaData();

@@ -19,6 +19,8 @@
 #include "QGCApplication.h"
 #include "QGCLoggingCategory.h"
 #include "Vehicle.h"
+#include "QGCStateMachine.h"
+#include "SendMavlinkMessageState.h"
 
 #include <QtCore/QEasingCurve>
 #include <QtCore/QFile>
@@ -739,8 +741,9 @@ void ParameterManager::_readParameterRaw(int componentId, const QString &paramNa
     (void) _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
 }
 
-void ParameterManager::_sendParamSetToVehicle(int componentId, const QString &paramName, FactMetaData::ValueType_t valueType, const QVariant &value) const
+void ParameterManager::_sendParamSetToVehicle(int componentId, const QString &paramName, FactMetaData::ValueType_t valueType, const QVariant &value)
 {
+#if 0
     const SharedLinkInterfacePtr sharedLink = _vehicle->vehicleLinkManager()->primaryLink().lock();
     if (!sharedLink) {
         return;
@@ -796,6 +799,62 @@ void ParameterManager::_sendParamSetToVehicle(int componentId, const QString &pa
                                              &msg,
                                              &p);
     (void) _vehicle->sendMessageOnLinkThreadSafe(sharedLink.get(), msg);
+#else
+    auto paramSetEncoder = [this, componentId, paramName, valueType, value](uint8_t systemId, uint8_t channel, mavlink_message_t *message) -> void {
+        mavlink_param_set_t p{};
+        p.param_type = factTypeToMavType(valueType);
+
+        mavlink_param_union_t union_value{};
+
+        bool ok = false;
+        switch (valueType) {
+        case FactMetaData::valueTypeUint8:
+            union_value.param_uint8 = static_cast<uint8_t>(value.toUInt(&ok));
+            break;
+        case FactMetaData::valueTypeInt8:
+            union_value.param_int8 = static_cast<int8_t>(value.toInt(&ok));
+            break;
+        case FactMetaData::valueTypeUint16:
+            union_value.param_uint16 = static_cast<uint16_t>(value.toUInt(&ok));
+            break;
+        case FactMetaData::valueTypeInt16:
+            union_value.param_int16 = static_cast<int16_t>(value.toInt(&ok));
+            break;
+        case FactMetaData::valueTypeUint32:
+            union_value.param_uint32 = static_cast<uint32_t>(value.toUInt(&ok));
+            break;
+        case FactMetaData::valueTypeFloat:
+            union_value.param_float = value.toFloat(&ok);
+            break;
+        default:
+            qCCritical(ParameterManagerLog) << "Unsupported fact value type" << valueType;
+        case FactMetaData::valueTypeInt32:
+            union_value.param_int32 = static_cast<int32_t>(value.toInt(&ok));
+            break;
+        }
+
+        if (!ok) {
+            qCCritical(ParameterManagerLog) << "Fact Failed to Convert to Param Type:" << value;
+            return;
+        }
+
+        p.param_value = union_value.param_float;
+        p.target_system = static_cast<uint8_t>(_vehicle->id());
+        p.target_component = static_cast<uint8_t>(componentId);
+
+        (void) strncpy(p.param_id, paramName.toStdString().c_str(), sizeof(p.param_id));
+
+        mavlink_msg_param_set_encode_chan(systemId,
+                                         componentId,
+                                         channel,
+                                         message,
+                                         &p);
+    };
+
+    auto stateMachine = new QGCStateMachine(QStringLiteral("ParameterManager PARAM_SET"), this);
+    auto sendParamSetState = new SendMavlinkMessageState(stateMachine, paramSetEncoder);
+    auto waitAckState = new QGCState("Wait for ACK", stateMachine);
+#endif
 }
 
 void ParameterManager::_writeLocalParamCache(int vehicleId, int componentId)
