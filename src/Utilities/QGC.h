@@ -18,6 +18,7 @@ namespace QGC
 
     /// Returns true if the two values are equal or close. Correctly handles 0 and NaN values.
     bool fuzzyCompare(double value1, double value2);
+    bool fuzzyCompare(double value1, double value2, double tolerance);
 
     quint32 crc32(const quint8 *src, unsigned len, unsigned state);
 }

@@ -126,4 +126,15 @@ bool fuzzyCompare(double value1, double value2)
     }
 }
 
+bool fuzzyCompare(double value1, double value2, double tolerance)
+{
+    if (qIsNaN(value1) && qIsNaN(value2)) {
+        return true;
+    } else if (qIsNaN(value1) || qIsNaN(value2)) {
+        return false;
+    } else {
+        return fabs(value1 - value2) <= tolerance;
+    }
+}
+
 }

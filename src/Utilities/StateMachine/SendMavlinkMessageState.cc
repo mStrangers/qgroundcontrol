@@ -20,8 +20,8 @@ SendMavlinkMessageState::SendMavlinkMessageState(QState *parent, MessageEncoder 
 
 void SendMavlinkMessageState::_sendMessage()
 {
-    if (++_runCount > _retryCount + 1) {
-        qCDebug(QGCStateMachineLog) << "Exceeded maximum retries sending MAVLink message";
+    if (++_runCount > _retryCount) {
+        qCDebug(QGCStateMachineLog) << "Exceeded maximum retries";
         emit error();
         return;
     }
